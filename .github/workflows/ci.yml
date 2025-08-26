@@ -1,5 +1,3 @@
-name: CI
-
 on:
   push:
     branches: [ main, master ]
@@ -19,6 +17,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache Poetry and pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
       - name: Install Poetry
         run: |
           python -m pip install --upgrade pip
@@ -27,19 +35,30 @@ jobs:
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false --local
-          poetry install --no-interaction
+          poetry install --no-interaction --no-ansi
 
-      - name: Black check
-        run: poetry run black --check .
+      - name: Lint (black + isort)
+        run: |
+          poetry run black --check .
+          poetry run isort --check-only .
 
-      - name: isort check
-        run: poetry run isort --check-only .
+      - name: Run tests (junit + coverage)
+        run: |
+          mkdir -p test-reports
+          poetry run pytest -v \
+            api/tests/ src/tests/ \
+            --junitxml=test-reports/junit.xml \
+            --cov=src --cov=api \
+            --cov-report=xml:test-reports/coverage.xml
 
-      - name: Run tests
-        run: poetry run pytest -q
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit
+          path: test-reports/junit.xml
 
   build-image:
-    name: Build Docker image
+    name: Build Docker image + smoke test
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -53,29 +72,26 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build image (no push)
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: cerverus:ci
-name: CI
+        run: docker buildx build --load -t cerverus:ci .
 
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - name: Install deps
+      - name: Smoke test: endpoints
+        continue-on-error: false
+        timeout-minutes: 5
         run: |
-          python -m pip install --upgrade pip
-          pip install -r api/requirements.txt
-      - name: Run tests
-        run: |
-          pytest -q
+         # Start container with clean up
+         cid=$(docker run -d -p 8000:8000 cerverus:ci)
+         echo "Container ID: $cid"
+         
+         # Wait for startup with 2 minute timeout
+         timeout 120 bash -c 'until curl -sS --fail http://localhost:8000/health >/dev/null; do
+           echo "Waiting for container to start..."
+           sleep 5
+         done' || (docker logs $cid && exit 1)
+         
+         # Test anomaly detection endpoint
+         curl -v -H "Content-Type: application/json" \
+           -d '{"data":[{"timestamp":"2025-01-01T00:00:00","close":100}]}' \
+           http://localhost:8000/api/v1/anomaly/detect
+         
+         # Cleanup
+         docker stop $cid && docker rm $cid

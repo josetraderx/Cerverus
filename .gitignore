@@ -11,3 +11,32 @@ data/models/
 requirements/
 !requirements/*.txt
 !requirements/README.md
+
+# Project outputs and reports
+results_*.csv
+reports/*.csv
+
+# Local env overrides and docker
+.env.local
+.dockerignore
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Python caches and test artifacts
+.pytest_cache/
+.mypy_cache/
+.coverage
+.cache/
+
+# Build/dist
+build/
+dist/
+*.egg-info/
+
+# OS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/

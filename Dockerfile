@@ -6,29 +6,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copiar metadatos de dependencias primero para aprovechar cache
-# Include README.md so Poetry can read the declared readme during install
+# Copiar metadatos primero para cache
 COPY pyproject.toml poetry.lock* README.md /app/
 
-# Copy package sources so Poetry can install the project package during build
-# We keep this minimal to allow layer caching for dependency metadata
+# Copiar código fuente para Poetry install
 COPY src /app/src
 
-# Instalar Poetry y dependencias en un venv in-project (.venv)
+# Instalar Poetry y dependencias
 RUN python -m pip install --upgrade pip && \
     python -m pip install poetry && \
     poetry config virtualenvs.create true && \
     poetry config virtualenvs.in-project true && \
     poetry install --only main --no-interaction --no-ansi
 
-# Copiar el resto del código
-COPY . /app
+# ✅ AGREGAR: Copiar carpetas faltantes
+COPY api /app/api
+COPY tools /app/tools
 
-# Exponer venv en PATH
+# Variables de entorno
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app"
 
 EXPOSE 8000
 
-# Comando por defecto (usa uvicorn del venv)
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# CMD correcto
 CMD ["/app/.venv/bin/python", "-m", "uvicorn", "api.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

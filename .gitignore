@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+.venv/
+venv/
+*.sqlite3
+data/raw/
+data/models/
+
+requirements/
+!requirements/*.txt
+!requirements/README.md

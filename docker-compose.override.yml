@@ -1,0 +1,14 @@
+services:
+  api:
+    volumes:
+      - ./src:/app/src:cached
+      - ./api:/app/api:cached
+    environment:
+      - PYTHONPATH=/app
+    command: "/app/.venv/bin/python -m uvicorn api.app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+# Nota: este archivo solo se usa en desarrollo con `docker compose up` y
+# no debe incluirse en las imágenes de producción. Montar `./src` permite
+# iterar en el paquete Python sin reconstruir la imagen.
+
+

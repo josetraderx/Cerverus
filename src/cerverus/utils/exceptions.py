@@ -1,0 +1,2 @@
+class CerverusError(Exception):
+    pass

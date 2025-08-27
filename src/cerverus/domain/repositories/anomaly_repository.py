@@ -1,5 +1,4 @@
 from typing import List
-
 from ..entities.anomaly import Anomaly
 
 

@@ -1,5 +1,4 @@
 from typing import List
-
 from ..entities.trade import Trade
 
 

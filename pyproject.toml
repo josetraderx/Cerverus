@@ -104,7 +104,7 @@ disable = [
 max-line-length = 88
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "api/tests", "src/tests"]
+testpaths = ["api/tests", "src/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

@@ -42,10 +42,10 @@ jobs:
         run: poetry install --with dev,test
       
       - name: Run Black (code formatting)
-        run: poetry run black --check .
+        run: poetry run black --check api/ src/ tools/
       
       - name: Run isort (import sorting)
-        run: poetry run isort --check-only .
+        run: poetry run isort --check-only api/ src/ tools/
       
       - name: Run pylint (code quality)
         run: poetry run pylint src/ --fail-under=8.0

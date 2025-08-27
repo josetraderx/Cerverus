@@ -1,0 +1,11 @@
+# Tier1 model configuration
+model:
+  name: "tier1"
+  type: "simple_threshold"
+  params:
+    threshold: 0.05
+
+training:
+  batch_size: 64
+  epochs: 10
+  learning_rate: 0.001

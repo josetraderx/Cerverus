@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cerverus-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cerverus-api
+  template:
+    metadata:
+      labels:
+        app: cerverus-api
+    spec:
+      containers:
+        - name: api
+          image: cerverus/api:latest
+          ports:
+            - containerPort: 8000

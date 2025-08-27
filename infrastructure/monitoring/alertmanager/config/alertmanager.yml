@@ -1,0 +1,8 @@
+global:
+  resolve_timeout: 5m
+route:
+  receiver: 'team-email'
+receivers:
+  - name: 'team-email'
+    email_configs:
+      - to: 'ops@example.com'

@@ -1,0 +1,14 @@
+# Data ingestion pipeline configuration
+pipeline:
+  name: "data_ingestion"
+  schedule: "@daily"
+  source:
+    type: "s3"
+    bucket: "cerverus-raw"
+  destination:
+    type: "local"
+    path: "data/processed/"
+
+processing:
+  chunk_size: 1000
+  validate_schema: true

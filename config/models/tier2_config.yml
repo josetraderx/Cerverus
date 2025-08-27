@@ -1,0 +1,12 @@
+# Tier2 model configuration
+model:
+  name: "tier2"
+  type: "xgboost"
+  params:
+    max_depth: 6
+    n_estimators: 100
+
+training:
+  batch_size: 128
+  epochs: 20
+  learning_rate: 0.01

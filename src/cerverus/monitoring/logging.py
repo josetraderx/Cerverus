@@ -1,3 +1,3 @@
 import logging
 
-logger = logging.getLogger('cerverus')
+logger = logging.getLogger("cerverus")

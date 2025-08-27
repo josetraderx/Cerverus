@@ -1,0 +1,11 @@
+# Staging environment configuration
+app:
+  debug: false
+  host: "0.0.0.0"
+  port: 8000
+
+database:
+  url: "postgresql://staging_user:staging_pass@staging-db:5432/cerverus"
+
+logging:
+  level: "INFO"

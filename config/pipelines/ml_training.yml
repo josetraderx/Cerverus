@@ -1,0 +1,18 @@
+# ML training pipeline configuration
+pipeline:
+  name: "ml_training"
+  schedule: "@weekly"
+  models:
+    - tier1
+    - tier2
+    - tier3
+    - tier4
+
+resources:
+  gpu: false
+  cpus: 4
+  memory: "16GB"
+
+artifacts:
+  output_path: "models/"
+  checkpoint_interval: 5

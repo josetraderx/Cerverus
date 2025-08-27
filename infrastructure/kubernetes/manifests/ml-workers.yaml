@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-workers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-workers
+  template:
+    metadata:
+      labels:
+        app: ml-workers
+    spec:
+      containers:
+        - name: worker
+          image: cerverus/ml-worker:latest
+          resources:
+            limits:
+              cpu: "2"
+              memory: "4Gi"

@@ -1,0 +1,11 @@
+# Production environment configuration
+app:
+  debug: false
+  host: "0.0.0.0"
+  port: 80
+
+database:
+  url: "postgresql://prod_user:prod_pass@prod-db:5432/cerverus"
+
+logging:
+  level: "WARNING"

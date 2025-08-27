@@ -1,0 +1,9 @@
+[
+    {
+        "anomaly_id": "a1",
+        "trade_id": "t2",
+        "detected_at": "2025-08-27T10:06:00Z",
+        "score": 0.95,
+        "reason": "large_trade"
+    }
+]

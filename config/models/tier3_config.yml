@@ -1,0 +1,17 @@
+# Tier3 model configuration
+model:
+  name: "tier3"
+  type: "neural_network"
+  params:
+    layers:
+      - type: "dense"
+        units: 128
+      - type: "dropout"
+        rate: 0.3
+      - type: "dense"
+        units: 64
+
+training:
+  batch_size: 256
+  epochs: 50
+  learning_rate: 0.0005

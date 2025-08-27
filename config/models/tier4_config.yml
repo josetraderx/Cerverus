@@ -1,0 +1,12 @@
+# Tier4 model configuration
+model:
+  name: "tier4"
+  type: "ensemble"
+  components:
+    - name: "tier3"
+    - name: "tier2"
+
+training:
+  batch_size: 512
+  epochs: 100
+  learning_rate: 0.0001

@@ -81,8 +81,7 @@ class TestBasicAnomalyEndpoint:
     def test_detect_anomalies_empty_data(self, client):
         """Test anomaly detection with empty data."""
         response = client.post(
-            "/api/v1/anomaly/detect", 
-            json={"data": [], "contamination": 0.1}
+            "/api/v1/anomaly/detect", json={"data": [], "contamination": 0.1}
         )
         # This should fail gracefully, either 400 or 500
         assert response.status_code in [400, 500]
@@ -91,10 +90,7 @@ class TestBasicAnomalyEndpoint:
         """Test anomaly detection with insufficient data points."""
         response = client.post(
             "/api/v1/anomaly/detect",
-            json={
-                "data": [{"value": 1.0}], 
-                "contamination": 0.1
-            },
+            json={"data": [{"value": 1.0}], "contamination": 0.1},
         )
         # Should get error from insufficient data
         assert response.status_code == 500

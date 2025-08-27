@@ -3,34 +3,36 @@ services:
   # API service: builds the app image and exposes Uvicorn
   api:
     build: .
-    # Map port 8000 on the host to 8000 in the container
     ports:
       - "8000:8000"
-    # Development-friendly mounts:
-    # - mount local api source into container so code changes are reflected immediately
-    # - optionally mount a local .venv to reuse the host venv (NOT recommended for CI/production)
     volumes:
       - ./api:/app/api
-    # - ./.venv:/app/.venv   # OPTIONAL: mount host venv into container (use only for local dev)
     environment:
       - DATABASE_URL=postgresql://postgres:example@db:5432/cerverus
       - ENVIRONMENT=development
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000
     depends_on:
-      - db
-  # If you want compose to wait for DB readiness, add a startup script or healthcheck logic.
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # Postgres service: simple local development DB
+  # PostgreSQL database for development
   db:
     image: postgres:15
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: example
       POSTGRES_DB: cerverus
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Basic healthcheck to signal readiness to Compose (optional but useful)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d cerverus"]
       interval: 10s
@@ -39,5 +41,5 @@ services:
       start_period: 10s
 
 volumes:
-  # Persistent volume for Postgres data
   postgres_data:
+    driver: local

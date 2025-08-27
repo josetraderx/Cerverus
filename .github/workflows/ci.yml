@@ -1,66 +1,69 @@
+name: Build, Test and Smoke Test
+
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: "3.11"
 
 jobs:
-  test:
-    name: Lint & Test
+  lint-and-test:
+    name: Lint and Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-
-      - name: Cache Poetry and pip
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            ~/.cache/pip
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
+          python-version: ${{ env.PYTHON_VERSION }}
+      
       - name: Install Poetry
         run: |
           python -m pip install --upgrade pip
-          pip install poetry
-
-      - name: Install dependencies
+          python -m pip install poetry
+      
+      - name: Configure Poetry
         run: |
-          poetry config virtualenvs.create false --local
-          poetry install --no-interaction --no-ansi
-
-      - name: Lint (black + isort)
-        run: |
-          poetry run black --check .
-          poetry run isort --check-only .
-
-      - name: Run tests (junit + coverage)
-        run: |
-          mkdir -p test-reports
-          poetry run pytest -v \
-            api/tests/ src/tests/ \
-            --junitxml=test-reports/junit.xml \
-            --cov=src --cov=api \
-            --cov-report=xml:test-reports/coverage.xml
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+      
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
         with:
-          name: junit
-          path: test-reports/junit.xml
+          path: .venv
+          key: venv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+      
+      - name: Install dependencies
+        run: poetry install --with dev,test
+      
+      - name: Run Black (code formatting)
+        run: poetry run black --check .
+      
+      - name: Run isort (import sorting)
+        run: poetry run isort --check-only .
+      
+      - name: Run pylint (code quality)
+        run: poetry run pylint src/ --fail-under=8.0
+      
+      - name: Run pytest (unit tests)
+        run: poetry run pytest --cov=src --cov-report=xml --cov-report=term-missing
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
 
-  build-image:
-    name: Build Docker image + smoke test
+  build-and-smoke-test:
+    name: Build Docker image + Smoke test
+    needs: lint-and-test
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,24 +77,65 @@ jobs:
       - name: Build image (no push)
         run: docker buildx build --load -t cerverus:ci .
 
-      - name: Smoke test: endpoints
-        continue-on-error: false
-        timeout-minutes: 5
+      - name: Smoke test with docker-compose
         run: |
-         # Start container with clean up
-         cid=$(docker run -d -p 8000:8000 cerverus:ci)
-         echo "Container ID: $cid"
-         
-         # Wait for startup with 2 minute timeout
-         timeout 120 bash -c 'until curl -sS --fail http://localhost:8000/health >/dev/null; do
-           echo "Waiting for container to start..."
-           sleep 5
-         done' || (docker logs $cid && exit 1)
-         
-         # Test anomaly detection endpoint
-         curl -v -H "Content-Type: application/json" \
-           -d '{"data":[{"timestamp":"2025-01-01T00:00:00","close":100}]}' \
-           http://localhost:8000/api/v1/anomaly/detect
-         
-         # Cleanup
-         docker stop $cid && docker rm $cid
+          # Create docker-compose.ci.yml using printf to avoid indentation issues
+          printf "%s\n" \
+            "version: '3.8'" \
+            "services:" \
+            "  api:" \
+            "    image: cerverus:ci" \
+            "    ports:" \
+            "      - \"8000:8000\"" \
+            "    environment:" \
+            "      - DATABASE_URL=postgresql://postgres:example@db:5432/cerverus" \
+            "      - ENVIRONMENT=test" \
+            "    depends_on:" \
+            "      db:" \
+            "        condition: service_healthy" \
+            "  db:" \
+            "    image: postgres:15" \
+            "    environment:" \
+            "      POSTGRES_USER: postgres" \
+            "      POSTGRES_PASSWORD: example" \
+            "      POSTGRES_DB: cerverus" \
+            "    healthcheck:" \
+            "      test: [\"CMD-SHELL\", \"pg_isready -U postgres -d cerverus\"]" \
+            "      interval: 10s" \
+            "      timeout: 5s" \
+            "      retries: 5" \
+            "      start_period: 10s" \
+            > docker-compose.ci.yml
+
+          # Start services
+          docker-compose -f docker-compose.ci.yml up -d
+
+          # Wait for database to be ready
+          timeout 60 bash -c 'until docker-compose -f docker-compose.ci.yml exec -T db pg_isready -U postgres -d cerverus; do
+            echo "Waiting for database to be ready..."
+            sleep 2
+          done'
+
+          # Wait for API to be ready
+          timeout 120 bash -c 'until curl -sSf http://localhost:8000/health >/dev/null; do
+            echo "Waiting for API to be ready..."
+            sleep 5
+          done'
+
+          # Test root endpoint
+          curl -sSf http://localhost:8000/ | grep -q "Cerverus API is running"
+
+          # Test anomaly detection endpoint
+          response=$(curl -s -H "Content-Type: application/json" \
+            -d '{"data": [{"value": 1.2, "volume": 1000}, {"value": 10.5, "volume": 5000}], "contamination": 0.1}' \
+            http://localhost:8000/api/v1/anomaly/detect)
+
+          # Validate response structure
+          echo "$response" | grep -q '"total_anomalies":'
+          echo "$response" | grep -q '"total_points":'
+
+          # Show logs for debugging
+          docker-compose -f docker-compose.ci.yml logs api
+
+          # Cleanup
+          docker-compose -f docker-compose.ci.yml down -v

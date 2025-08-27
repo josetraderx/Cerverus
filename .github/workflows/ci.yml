@@ -138,4 +138,4 @@ jobs:
           docker-compose -f docker-compose.ci.yml logs api
 
           # Cleanup
-          docker-compose -f docker-compose.ci.yml down -v
+          docker-compose -f docker-compose.ci.yml down -v# Updated Wed, Aug 27, 2025  3:44:08 PM

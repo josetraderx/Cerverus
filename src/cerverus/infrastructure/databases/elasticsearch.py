@@ -1,4 +1,5 @@
 from typing import List
+
 from ...domain.entities.anomaly import Anomaly
 
 

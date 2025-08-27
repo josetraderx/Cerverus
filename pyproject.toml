@@ -80,6 +80,8 @@ exclude = '''
   | _build
   | build
   | dist
+  | tests/unit
+  | tests/helpers
 )/
 '''
 
@@ -88,6 +90,7 @@ profile = "black"
 multi_line_output = 3
 line_length = 88
 known_first_party = ["cerverus"]
+skip_glob = ["tests/unit/*", "tests/helpers/*"]
 
 [tool.pylint.messages_control]
 disable = [

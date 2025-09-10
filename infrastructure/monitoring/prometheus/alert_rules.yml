@@ -1,0 +1,302 @@
+---
+# Alert Rules for Cerverus System
+# File: alert_rules.yml
+# 
+# Configures critical alerts for proactive monitoring of the fraud detection system
+
+groups:
+  # ===============================================
+  # CRITICAL SYSTEM ALERTS
+  # ===============================================
+  - name: cerverus.critical
+    interval: 30s
+    rules:
+      # System completely down
+      - alert: CerverusSystemDown
+        expr: up{job=~"cerverus.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: platform
+          component: system
+        annotations:
+          summary: "Cerverus system completely down"
+          description: "Service {{ $labels.instance }} from job {{ $labels.job }} has been down for more than 30 seconds."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/system-down"
+          action_required: "Investigate immediately and restore service"
+
+      # Critical fraud detection latency
+      - alert: CerverusFraudDetectionLatencyCritical
+        expr: histogram_quantile(0.95, rate(cerverus_fraud_detection_latency_seconds_bucket[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          team: ml-engineering
+          component: fraud-detection
+        annotations:
+          summary: "Critical latency in fraud detection"
+          description: "P95 fraud detection latency is {{ $value }}s, exceeding critical threshold of 0.5s."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/high-latency"
+          action_required: "Review ML model performance and system resources"
+
+      # Massive data ingestion failures
+      - alert: CerverusDataIngestionFailure
+        expr: (rate(cerverus_data_extraction_total{status="error"}[5m]) / rate(cerverus_data_extraction_total[5m])) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+          team: data-engineering
+          component: data-ingestion
+        annotations:
+          summary: "Massive data ingestion failures"
+          description: "More than 50% of data extractions are failing in the last 5 minutes."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/data-ingestion-failure"
+          action_required: "Verify connectivity with data sources and network services"
+
+      # Critically degraded data quality
+      - alert: CerverusDataQualityCritical
+        expr: avg(cerverus_data_quality_score) < 0.5
+        for: 5m
+        labels:
+          severity: critical
+          team: data-quality
+          component: data-validation
+        annotations:
+          summary: "Data quality critically degraded"
+          description: "Average data quality has dropped to {{ $value }}, below critical threshold of 0.5."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/data-quality-critical"
+          action_required: "Suspend automatic trading and review data sources"
+
+  # ===============================================
+  # SYSTEM WARNING ALERTS
+  # ===============================================
+  - name: cerverus.warning
+    interval: 1m
+    rules:
+      # High fraud signal rate
+      - alert: CerverusHighFraudSignalRate
+        expr: sum(rate(cerverus_fraud_signals_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: fraud-analysts
+          component: fraud-detection
+        annotations:
+          summary: "High rate of fraud signals detected"
+          description: "Detecting {{ $value }} fraud signals per second, indicating possible anomalous market activity."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/high-fraud-signals"
+          action_required: "Review market patterns and adjust thresholds if necessary"
+
+      # High detection latency
+      - alert: CerverusFraudDetectionLatencyHigh
+        expr: histogram_quantile(0.95, rate(cerverus_fraud_detection_latency_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: ml-engineering
+          component: fraud-detection
+        annotations:
+          summary: "High fraud detection latency"
+          description: "P95 detection latency is {{ $value }}s, exceeding target of 0.1s."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/latency-high"
+          action_required: "Monitor and consider resource scaling"
+
+      # Stale data
+      - alert: CerverusDataFreshnessWarning
+        expr: cerverus_data_freshness_minutes > 15
+        for: 2m
+        labels:
+          severity: warning
+          team: data-engineering
+          component: data-ingestion
+          source: "{{ $labels.source }}"
+        annotations:
+          summary: "Stale data detected"
+          description: "Data from {{ $labels.source }} is {{ $value }} minutes old, exceeding target of 15 minutes."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/data-freshness"
+          action_required: "Verify ingestion pipeline for {{ $labels.source }}"
+
+      # High false positive rate
+      - alert: CerverusHighFalsePositiveRate
+        expr: cerverus_false_positive_rate > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          team: ml-engineering
+          component: fraud-detection
+        annotations:
+          summary: "High false positive rate"
+          description: "False positive rate is {{ $value | humanizePercentage }}, exceeding target of 15%."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/false-positives"
+          action_required: "Review and retrain detection models"
+
+  # ===============================================
+  # INFRASTRUCTURE ALERTS
+  # ===============================================
+  - name: cerverus.infrastructure
+    interval: 1m
+    rules:
+      # Sustained high CPU
+      - alert: CerverusHighCPUUsage
+        expr: cerverus_system_cpu_usage_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          component: infrastructure
+        annotations:
+          summary: "Sustained high CPU usage"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value }}%, sustained for more than 5 minutes."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/high-cpu"
+          action_required: "Consider horizontal or vertical scaling"
+
+      # Sustained high memory
+      - alert: CerverusHighMemoryUsage
+        expr: cerverus_system_memory_usage_percent > 90
+        for: 3m
+        labels:
+          severity: warning
+          team: platform
+          component: infrastructure
+        annotations:
+          summary: "Sustained high memory usage"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value }}%, sustained for more than 3 minutes."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/high-memory"
+          action_required: "Check for memory leaks and consider scaling"
+
+      # Disk almost full
+      - alert: CerverusDiskSpaceLow
+        expr: (100 - cerverus_system_disk_usage_percent) < 10
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+          component: infrastructure
+        annotations:
+          summary: "Critical disk space"
+          description: "Less than 10% disk space available on {{ $labels.instance }}."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/disk-space"
+          action_required: "Clean logs and temporary files immediately"
+
+  # ===============================================
+  # ML MODEL ALERTS
+  # ===============================================
+  - name: cerverus.ml-models
+    interval: 2m
+    rules:
+      # Degraded model accuracy
+      - alert: CerverusModelAccuracyDegraded
+        expr: cerverus_model_accuracy{metric_type="accuracy"} < 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: ml-engineering
+          component: ml-models
+          model: "{{ $labels.model_name }}"
+        annotations:
+          summary: "ML model accuracy degraded"
+          description: "Model {{ $labels.model_name }} has accuracy of {{ $value | humanizePercentage }}, below target of 85%."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/model-accuracy"
+          action_required: "Review data drift and consider retraining"
+
+      # Model unavailable
+      - alert: CerverusModelUnavailable
+        expr: absent(cerverus_model_accuracy{metric_type="accuracy"})
+        for: 5m
+        labels:
+          severity: critical
+          team: ml-engineering
+          component: ml-models
+        annotations:
+          summary: "ML models unavailable"
+          description: "No accuracy metrics are being reported for any ML model."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/model-unavailable"
+          action_required: "Verify ML services and model serving"
+
+  # ===============================================
+  # BUSINESS KPI ALERTS
+  # ===============================================
+  - name: cerverus.business
+    interval: 5m
+    rules:
+      # Investigation backlog accumulating
+      - alert: CerverusInvestigationBacklog
+        expr: sum(rate(cerverus_fraud_signals_total[1h])) - sum(rate(cerverus_investigations_completed_total[1h])) > 50
+        for: 15m
+        labels:
+          severity: warning
+          team: fraud-analysts
+          component: investigations
+        annotations:
+          summary: "Investigation backlog accumulating"
+          description: "More investigations are accumulating than being completed. Difference: {{ $value }} investigations/hour."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/investigation-backlog"
+          action_required: "Assign more analysts or review prioritization"
+
+      # SLA availability breach
+      - alert: CerverusSLAAvailabilityBreach
+        expr: (sum(rate(cerverus_pipeline_execution_total{status="success"}[1h])) / sum(rate(cerverus_pipeline_execution_total[1h]))) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          component: sla
+        annotations:
+          summary: "SLA availability breach"
+          description: "System availability is {{ $value | humanizePercentage }}, below SLA of 99.9%."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/sla-breach"
+          action_required: "Activate incident response procedures"
+
+  # ===============================================
+  # DEAD LETTER QUEUE ALERTS
+  # ===============================================
+  - name: cerverus.dlq
+    interval: 1m
+    rules:
+      # DLQ accumulating messages
+      - alert: CerverusDLQBacklog
+        expr: cerverus_dlq_message_count > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: data-engineering
+          component: message-queue
+        annotations:
+          summary: "Dead Letter Queue accumulating messages"
+          description: "DLQ has {{ $value }} accumulated messages, indicating systematic failures."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/dlq-backlog"
+          action_required: "Investigate failure causes and process DLQ messages"
+
+  # ===============================================
+  # SECURITY ALERTS
+  # ===============================================
+  - name: cerverus.security
+    interval: 1m
+    rules:
+      # Rate limits being exceeded frequently
+      - alert: CerverusRateLimitExceeded
+        expr: rate(cerverus_rate_limit_exceeded_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+          component: rate-limiting
+        annotations:
+          summary: "Rate limits being exceeded frequently"
+          description: "Rate limits are being exceeded {{ $value }} times per second."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/rate-limit"
+          action_required: "Investigate possible DDoS attack or incorrect configuration"
+
+      # Unauthorized access attempts
+      - alert: CerverusUnauthorizedAccess
+        expr: rate(cerverus_unauthorized_access_attempts_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+          component: authentication
+        annotations:
+          summary: "Unauthorized access attempts detected"
+          description: "Detecting {{ $value }} unauthorized access attempts per second."
+          runbook_url: "https://wiki.company.com/cerverus/runbooks/unauthorized-access"
+          action_required: "Activate security procedures and investigate origin"

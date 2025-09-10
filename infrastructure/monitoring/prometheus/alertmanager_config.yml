@@ -1,0 +1,155 @@
+# Complete AlertManager Configuration for Cerverus System
+# File: alertmanager.yml
+
+global:
+  smtp_smarthost: 'smtp.company.com:587'
+  smtp_from: 'cerverus-alerts@company.com'
+  smtp_auth_username: 'cerverus-alerts@company.com'
+  smtp_auth_password: 'secure_password'
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    # Critical alerts go directly to PagerDuty
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 5m
+
+    # ML/Data alerts go to specialized team
+    - match_re:
+        team: 'ml-engineering|data-engineering|data-quality'
+      receiver: 'data-team'
+      group_interval: 5m
+
+    # Fraud alerts go to analysts
+    - match:
+        team: fraud-analysts
+      receiver: 'fraud-team'
+      group_interval: 2m
+
+    # Infrastructure alerts go to platform team
+    - match:
+        team: platform
+      receiver: 'platform-team'
+
+    # Security alerts - immediate escalation
+    - match:
+        team: security
+      receiver: 'security-team'
+      group_wait: 0s
+      repeat_interval: 10m
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'cerverus-alerts@company.com'
+        subject: 'Cerverus Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+        description: 'Cerverus Critical Alert: {{ .GroupLabels.alertname }}'
+        details:
+          summary: '{{ .CommonAnnotations.summary }}'
+          description: '{{ .CommonAnnotations.description }}'
+          runbook: '{{ .CommonAnnotations.runbook_url }}'
+
+  - name: 'data-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#cerverus-data-alerts'
+        title: 'Data Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          🔍 **{{ .Annotations.summary }}**
+          📊 {{ .Annotations.description }}
+          🔗 [Runbook]({{ .Annotations.runbook_url }})
+          ⚡ Action: {{ .Annotations.action_required }}
+          {{ end }}
+
+  - name: 'fraud-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#cerverus-fraud-alerts'
+        title: 'Fraud Detection Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          🚨 **{{ .Annotations.summary }}**
+          📈 {{ .Annotations.description }}
+          🔗 [Runbook]({{ .Annotations.runbook_url }})
+          ⚡ Action: {{ .Annotations.action_required }}
+          {{ end }}
+    email_configs:
+      - to: 'fraud-analysts@company.com'
+        subject: 'Fraud Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'platform-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#cerverus-platform-alerts'
+        title: 'Platform Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          🖥️ **{{ .Annotations.summary }}**
+          ⚙️ {{ .Annotations.description }}
+          🔗 [Runbook]({{ .Annotations.runbook_url }})
+          ⚡ Action: {{ .Annotations.action_required }}
+          {{ end }}
+
+  - name: 'security-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#cerverus-security-alerts'
+        title: '🔒 SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          🚨 **{{ .Annotations.summary }}**
+          🛡️ {{ .Annotations.description }}
+          🔗 [Runbook]({{ .Annotations.runbook_url }})
+          ⚡ IMMEDIATE ACTION: {{ .Annotations.action_required }}
+          {{ end }}
+    email_configs:
+      - to: 'security@company.com'
+        subject: 'SECURITY ALERT: {{ .GroupLabels.alertname }}'
+    pagerduty_configs:
+      - service_key: 'YOUR_SECURITY_PAGERDUTY_KEY'
+        description: 'Security Alert: {{ .GroupLabels.alertname }}'
+
+# Inhibit rules - prevent spam of related alerts
+inhibit_rules:
+  # If system is completely down, don't alert about other problems
+  - source_match:
+      alertname: 'CerverusSystemDown'
+    target_match_re:
+      alertname: 'Cerverus.*'
+    equal: ['instance']
+
+  # If there are infrastructure problems, don't alert about latency
+  - source_match_re:
+      alertname: 'CerverusHigh(CPU|Memory)Usage'
+    target_match:
+      alertname: 'CerverusFraudDetectionLatencyHigh'
+    equal: ['instance']
+
+  # If there are data ingestion problems, don't alert about quality
+  - source_match:
+      alertname: 'CerverusDataIngestionFailure'
+    target_match:
+      alertname: 'CerverusDataQualityCritical'
+    equal: ['source']

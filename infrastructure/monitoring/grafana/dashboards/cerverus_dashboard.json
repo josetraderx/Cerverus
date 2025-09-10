@@ -1,0 +1,942 @@
+{
+    "dashboard": {
+        "id": null,
+        "title": "Cerverus System - Comprehensive Monitoring",
+        "description": "Main dashboard for monitoring the Cerverus fraud detection system",
+        "tags": [
+            "cerverus",
+            "fraud-detection",
+            "finance",
+            "monitoring"
+        ],
+        "style": "dark",
+        "timezone": "browser",
+        "editable": true,
+        "hideControls": false,
+        "graphTooltip": 1,
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "timepicker": {
+            "refresh_intervals": [
+                "5s",
+                "10s",
+                "30s",
+                "1m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "1d"
+            ],
+            "time_options": [
+                "5m",
+                "15m",
+                "1h",
+                "6h",
+                "12h",
+                "24h",
+                "2d",
+                "7d",
+                "30d"
+            ]
+        },
+        "templating": {
+            "list": [
+                {
+                    "name": "environment",
+                    "type": "query",
+                    "query": "label_values(cerverus_data_extraction_total, environment)",
+                    "current": {
+                        "value": "production",
+                        "text": "production"
+                    },
+                    "options": [],
+                    "includeAll": false,
+                    "multi": false,
+                    "refresh": 1
+                },
+                {
+                    "name": "source",
+                    "type": "query",
+                    "query": "label_values(cerverus_data_extraction_total{environment=\"$environment\"}, source)",
+                    "current": {
+                        "value": "all",
+                        "text": "All"
+                    },
+                    "options": [],
+                    "includeAll": true,
+                    "multi": true,
+                    "refresh": 1
+                }
+            ]
+        },
+        "annotations": {
+            "list": [
+                {
+                    "name": "Alerts",
+                    "datasource": "Prometheus",
+                    "enable": true,
+                    "expr": "ALERTS{alertname!=\"Watchdog\", environment=\"$environment\"}",
+                    "iconColor": "red",
+                    "titleFormat": "{{alertname}}",
+                    "textFormat": "{{instance}}: {{summary}}"
+                }
+            ]
+        },
+        "panels": [
+            {
+                "id": 1,
+                "title": "🎯 Executive Summary",
+                "type": "stat",
+                "gridPos": {
+                    "h": 8,
+                    "w": 24,
+                    "x": 0,
+                    "y": 0
+                },
+                "targets": [
+                    {
+                        "expr": "sum(rate(cerverus_fraud_signals_total{environment=\"$environment\"}[5m])) * 3600",
+                        "legendFormat": "Fraud Signals/Hour",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "avg(cerverus_data_quality_score{environment=\"$environment\"})",
+                        "legendFormat": "Avg Data Quality",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.95, rate(cerverus_fraud_detection_latency_seconds_bucket{environment=\"$environment\"}[5m])) * 1000",
+                        "legendFormat": "P95 Detection Latency (ms)",
+                        "refId": "C"
+                    },
+                    {
+                        "expr": "cerverus_false_positive_rate{environment=\"$environment\"} * 100",
+                        "legendFormat": "False Positive Rate %",
+                        "refId": "D"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "min": 0,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 80
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 100
+                                }
+                            ]
+                        }
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "Avg Data Quality"
+                            },
+                            "properties": [
+                                {
+                                    "id": "unit",
+                                    "value": "percentunit"
+                                },
+                                {
+                                    "id": "min",
+                                    "value": 0
+                                },
+                                {
+                                    "id": "max",
+                                    "value": 1
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "P95 Detection Latency (ms)"
+                            },
+                            "properties": [
+                                {
+                                    "id": "unit",
+                                    "value": "ms"
+                                },
+                                {
+                                    "id": "thresholds",
+                                    "value": {
+                                        "steps": [
+                                            {
+                                                "color": "green",
+                                                "value": null
+                                            },
+                                            {
+                                                "color": "yellow",
+                                                "value": 50
+                                            },
+                                            {
+                                                "color": "red",
+                                                "value": 100
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "options": {
+                    "reduceOptions": {
+                        "values": false,
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": ""
+                    },
+                    "orientation": "auto",
+                    "textMode": "auto",
+                    "colorMode": "background",
+                    "graphMode": "area",
+                    "justifyMode": "auto"
+                }
+            },
+            {
+                "id": 2,
+                "title": "📊 Data Ingestion Rate",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sum by (source) (rate(cerverus_data_records_processed_total{environment=\"$environment\", source=~\"$source\"}[5m]))",
+                        "legendFormat": "{{source}}",
+                        "refId": "A"
+                    }
+                ],
+                "yAxes": [
+                    {
+                        "label": "Records/Second",
+                        "min": 0,
+                        "show": true
+                    },
+                    {
+                        "show": false
+                    }
+                ],
+                "xAxis": {
+                    "show": true
+                },
+                "fill": 1,
+                "linewidth": 2,
+                "pointradius": 2,
+                "bars": false,
+                "lines": true,
+                "points": false,
+                "stack": false,
+                "percentage": false,
+                "legend": {
+                    "show": true,
+                    "values": true,
+                    "current": true,
+                    "max": true,
+                    "avg": true
+                },
+                "nullPointMode": "null",
+                "steppedLine": false,
+                "tooltip": {
+                    "value_type": "individual",
+                    "shared": true,
+                    "sort": 2
+                },
+                "aliasColors": {
+                    "yahoo_finance": "#7EB26D",
+                    "sec_edgar": "#EAB839",
+                    "finra": "#6ED0E0",
+                    "alpha_vantage": "#EF843C"
+                }
+            },
+            {
+                "id": 3,
+                "title": "🚨 Fraud Signals by Severity",
+                "type": "piechart",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sum by (severity) (rate(cerverus_fraud_signals_total{environment=\"$environment\"}[1h]))",
+                        "legendFormat": "{{severity}}",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "values": false,
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": ""
+                    },
+                    "pieType": "pie",
+                    "tooltip": {
+                        "mode": "single"
+                    },
+                    "legend": {
+                        "displayMode": "visible",
+                        "placement": "bottom"
+                    },
+                    "displayLabels": [
+                        "name",
+                        "value"
+                    ]
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "custom": {
+                            "hideFrom": {
+                                "legend": false,
+                                "tooltip": false,
+                                "vis": false
+                            }
+                        },
+                        "mappings": [],
+                        "unit": "short"
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "critical"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "red"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "high"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "orange"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "medium"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "yellow"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "low"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "green"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "id": 4,
+                "title": "⚡ Detection Latency Distribution",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 16
+                },
+                "targets": [
+                    {
+                        "expr": "histogram_quantile(0.50, rate(cerverus_fraud_detection_latency_seconds_bucket{environment=\"$environment\"}[5m]))",
+                        "legendFormat": "P50",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.95, rate(cerverus_fraud_detection_latency_seconds_bucket{environment=\"$environment\"}[5m]))",
+                        "legendFormat": "P95",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.99, rate(cerverus_fraud_detection_latency_seconds_bucket{environment=\"$environment\"}[5m]))",
+                        "legendFormat": "P99",
+                        "refId": "C"
+                    }
+                ],
+                "yAxes": [
+                    {
+                        "label": "Latency (seconds)",
+                        "min": 0,
+                        "show": true,
+                        "logBase": 1
+                    },
+                    {
+                        "show": false
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "s",
+                        "min": 0,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 0.05
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 0.1
+                                }
+                            ]
+                        }
+                    }
+                },
+                "alert": {
+                    "name": "High Fraud Detection Latency",
+                    "message": "Fraud detection latency P95 is above threshold",
+                    "frequency": "30s",
+                    "conditions": [
+                        {
+                            "query": {
+                                "queryType": "",
+                                "refId": "B"
+                            },
+                            "reducer": {
+                                "type": "last",
+                                "params": []
+                            },
+                            "evaluator": {
+                                "params": [
+                                    0.1
+                                ],
+                                "type": "gt"
+                            }
+                        }
+                    ],
+                    "executionErrorState": "alerting",
+                    "noDataState": "no_data",
+                    "for": "1m"
+                }
+            },
+            {
+                "id": 5,
+                "title": "📈 Data Quality Scores by Source",
+                "type": "stat",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 16
+                },
+                "targets": [
+                    {
+                        "expr": "cerverus_data_quality_score{environment=\"$environment\", quality_dimension=\"completeness\"}",
+                        "legendFormat": "{{source}} - Completeness",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "cerverus_data_quality_score{environment=\"$environment\", quality_dimension=\"accuracy\"}",
+                        "legendFormat": "{{source}} - Accuracy",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "cerverus_data_quality_score{environment=\"$environment\", quality_dimension=\"timeliness\"}",
+                        "legendFormat": "{{source}} - Timeliness",
+                        "refId": "C"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percentunit",
+                        "min": 0,
+                        "max": 1,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 0.8
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 0.95
+                                }
+                            ]
+                        }
+                    }
+                },
+                "options": {
+                    "reduceOptions": {
+                        "values": false,
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": ""
+                    },
+                    "orientation": "auto",
+                    "textMode": "auto",
+                    "colorMode": "background",
+                    "graphMode": "none",
+                    "justifyMode": "auto"
+                }
+            },
+            {
+                "id": 6,
+                "title": "🖥️ System Resource Utilization",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 24
+                },
+                "targets": [
+                    {
+                        "expr": "cerverus_system_cpu_usage_percent{environment=\"$environment\"}",
+                        "legendFormat": "CPU Usage %",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "cerverus_system_memory_usage_percent{environment=\"$environment\"}",
+                        "legendFormat": "Memory Usage %",
+                        "refId": "B"
+                    }
+                ],
+                "yAxes": [
+                    {
+                        "label": "Percentage",
+                        "min": 0,
+                        "max": 100,
+                        "show": true
+                    },
+                    {
+                        "show": false
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 70
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 90
+                                }
+                            ]
+                        }
+                    }
+                },
+                "fill": 1,
+                "linewidth": 2,
+                "lines": true,
+                "points": false,
+                "stack": false,
+                "aliasColors": {
+                    "CPU Usage %": "#3274D9",
+                    "Memory Usage %": "#FF9830"
+                }
+            },
+            {
+                "id": 7,
+                "title": "🔍 ML Model Performance",
+                "type": "table",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 24
+                },
+                "targets": [
+                    {
+                        "expr": "cerverus_model_accuracy{environment=\"$environment\"}",
+                        "legendFormat": "",
+                        "refId": "A",
+                        "instant": true,
+                        "format": "table"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percentunit",
+                        "min": 0,
+                        "max": 1,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 0.8
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 0.9
+                                }
+                            ]
+                        }
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "model_name"
+                            },
+                            "properties": [
+                                {
+                                    "id": "displayName",
+                                    "value": "Model"
+                                },
+                                {
+                                    "id": "unit",
+                                    "value": "string"
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "metric_type"
+                            },
+                            "properties": [
+                                {
+                                    "id": "displayName",
+                                    "value": "Metric"
+                                },
+                                {
+                                    "id": "unit",
+                                    "value": "string"
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "Value"
+                            },
+                            "properties": [
+                                {
+                                    "id": "displayName",
+                                    "value": "Score"
+                                },
+                                {
+                                    "id": "custom.displayMode",
+                                    "value": "basic"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "options": {
+                    "showHeader": true,
+                    "sortBy": [
+                        {
+                            "desc": true,
+                            "displayName": "Score"
+                        }
+                    ]
+                },
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": {
+                                "__name__": true,
+                                "environment": true,
+                                "instance": true,
+                                "job": true
+                            },
+                            "indexByName": {
+                                "model_name": 0,
+                                "metric_type": 1,
+                                "Value": 2
+                            },
+                            "renameByName": {}
+                        }
+                    }
+                ]
+            },
+            {
+                "id": 8,
+                "title": "📅 Data Freshness Status",
+                "type": "stat",
+                "gridPos": {
+                    "h": 6,
+                    "w": 24,
+                    "x": 0,
+                    "y": 32
+                },
+                "targets": [
+                    {
+                        "expr": "cerverus_data_freshness_minutes{environment=\"$environment\"}",
+                        "legendFormat": "{{source}}",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "m",
+                        "min": 0,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 10
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 30
+                                }
+                            ]
+                        }
+                    }
+                },
+                "options": {
+                    "reduceOptions": {
+                        "values": false,
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": ""
+                    },
+                    "orientation": "horizontal",
+                    "textMode": "auto",
+                    "colorMode": "background",
+                    "graphMode": "none",
+                    "justifyMode": "auto"
+                }
+            },
+            {
+                "id": 9,
+                "title": "🚦 Pipeline Success Rate",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 38
+                },
+                "targets": [
+                    {
+                        "expr": "rate(cerverus_pipeline_execution_total{environment=\"$environment\", status=\"success\"}[5m]) / rate(cerverus_pipeline_execution_total{environment=\"$environment\"}[5m]) * 100",
+                        "legendFormat": "{{pipeline_name}} Success Rate",
+                        "refId": "A"
+                    }
+                ],
+                "yAxes": [
+                    {
+                        "label": "Success Rate %",
+                        "min": 0,
+                        "max": 100,
+                        "show": true
+                    },
+                    {
+                        "show": false
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 95
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 99
+                                }
+                            ]
+                        }
+                    }
+                },
+                "fill": 0,
+                "linewidth": 2,
+                "lines": true,
+                "points": true,
+                "pointradius": 3
+            },
+            {
+                "id": 10,
+                "title": "🎯 Investigation Metrics",
+                "type": "stat",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 38
+                },
+                "targets": [
+                    {
+                        "expr": "sum(rate(cerverus_investigations_completed_total{environment=\"$environment\", status=\"confirmed_fraud\"}[1h]))",
+                        "legendFormat": "Confirmed Frauds/Hour",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "sum(rate(cerverus_investigations_completed_total{environment=\"$environment\", status=\"false_positive\"}[1h]))",
+                        "legendFormat": "False Positives/Hour",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "sum(rate(cerverus_investigations_completed_total{environment=\"$environment\"}[1h]))",
+                        "legendFormat": "Total Investigations/Hour",
+                        "refId": "C"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "min": 0,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 10
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 50
+                                }
+                            ]
+                        }
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "Confirmed Frauds/Hour"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "red"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "matcher": {
+                                "id": "byName",
+                                "options": "False Positives/Hour"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "mode": "fixed",
+                                        "fixedColor": "yellow"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "options": {
+                    "reduceOptions": {
+                        "values": false,
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": ""
+                    },
+                    "orientation": "auto",
+                    "textMode": "auto",
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto"
+                }
+            }
+        ],
+        "refresh": "30s",
+        "schemaVersion": 27,
+        "version": 1
+    },
+    "folderTitle": "Cerverus Fraud Detection",
+    "overwrite": true
+}
+

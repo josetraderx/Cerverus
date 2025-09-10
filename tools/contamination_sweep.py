@@ -15,7 +15,7 @@ try:
 except Exception:
     yf = None
 
-from src.cerverus.models.tier2 import IsolationForestDetector
+from cerverus.models.isolation_forest_eda import CerverusIsolationForest
 
 
 def fetch_symbol_history(symbol, days=90):
@@ -47,7 +47,7 @@ def analyze_with_contamination(df, contamination):
     numeric = df.select_dtypes(include=[np.number])
     if numeric.empty or len(numeric) < 10:
         return 0
-    detector = IsolationForestDetector(contamination=contamination)
+    detector = CerverusIsolationForest(contamination=contamination)
     detector.fit(numeric)
     preds = detector.predict(numeric)
     return int((preds == -1).sum())

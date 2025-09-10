@@ -4,7 +4,7 @@ Enhanced Pilot Runner: Professional anomaly detection with comprehensive reporti
 Built on top of the existing run_pilot.py but with enterprise-grade reporting capabilities.
 
 Features:
-- Multi-symbol anomaly detection using existing IsolationForestDetector
+- Multi-symbol anomaly detection using existing CerverusIsolationForest
 - Performance metrics calculation
 - Statistical analysis and insights
 - Professional markdown reporting
@@ -26,6 +26,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+# central paths helper
+from cerverus.config.paths import RESULTS_DIR
+
 try:
     import yfinance as yf
 except ImportError:
@@ -41,17 +44,18 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from src.cerverus.models.tier2 import IsolationForestDetector
+    from cerverus.models.isolation_forest_eda import CerverusIsolationForest
 except ImportError:
     # Alternative import path
-    from cerverus.models.tier2 import IsolationForestDetector
+    from cerverus.models.lof_detector import CerverusIsolationForest
 
 
 class EnhancedPilotRunner:
     """Professional pilot runner with comprehensive reporting."""
 
-    def __init__(self, output_dir: str = "data/results"):
-        self.output_dir = Path(output_dir)
+    def __init__(self, output_dir: str | Path = None):
+        # default to central RESULTS_DIR if not provided
+        self.output_dir = Path(output_dir) if output_dir is not None else Path(RESULTS_DIR)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.results = []
@@ -194,8 +198,8 @@ class EnhancedPilotRunner:
             }
 
         try:
-            # Use existing IsolationForestDetector
-            detector = IsolationForestDetector(contamination=contamination)
+            # Use existing CerverusIsolationForest
+            detector = CerverusIsolationForest(contamination=contamination)
             detector.fit(numeric)
             preds = detector.predict(numeric)
 
@@ -642,7 +646,7 @@ def main():
         help="Contamination rate for IsolationForest",
     )
     parser.add_argument(
-        "--output-dir", default="data/results", help="Output directory for results"
+        "--output-dir", default=str(RESULTS_DIR), help="Output directory for results"
     )
     parser.add_argument(
         "--csv-file", default="enhanced_pilot_results.csv", help="CSV output filename"

@@ -6,7 +6,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.cerverus.models.tier2 import IsolationForestDetector
+from cerverus.models.isolation_forest_eda import CerverusIsolationForest
 
 router = APIRouter(prefix="/anomaly", tags=["anomaly"])
 
@@ -36,7 +36,7 @@ async def detect_anomalies(request: AnomalyRequest):
             )
 
         # Crear y entrenar detector con datos numéricos
-        detector = IsolationForestDetector(contamination=request.contamination)
+        detector = CerverusIsolationForest(contamination=request.contamination)
         detector.fit(numeric_df)
 
         # Predecir sobre las mismas filas y mapear al dataframe original

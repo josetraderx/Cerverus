@@ -1,0 +1,3 @@
+# docker-compose.monitoring.yml placeholder
+version: '3.8'
+services: {}

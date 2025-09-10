@@ -1,0 +1,3 @@
+# ML worker requirements placeholder
+numpy
+scikit-learn
